@@ -95,12 +95,25 @@ class RsvpControllerTest {
     }
 
     @Test
-    void submitRsvp_closedOrCancelledEvent_returns409() throws Exception {
+    void submitRsvp_closedEvent_returns409() throws Exception {
         when(rsvpService.submitRsvpResponse("token", RsvpResponse.YES))
                 .thenThrow(new InvalidEventStateTransitionException("RSVP not allowed: event is CLOSED"));
 
         mockMvc.perform(post("/api/rsvp/token").contentType("application/json").content("{\"response\":\"YES\"}"))
-                .andExpect(status().isConflict());
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.status", is(409)))
+                .andExpect(jsonPath("$.error", is("Conflict")))
+                .andExpect(jsonPath("$.message", is("RSVP not allowed: event is CLOSED")));
+    }
+
+    @Test
+    void submitRsvp_cancelledEvent_returns409() throws Exception {
+        when(rsvpService.submitRsvpResponse("token", RsvpResponse.YES))
+                .thenThrow(new InvalidEventStateTransitionException("RSVP not allowed: event is CANCELLED"));
+
+        mockMvc.perform(post("/api/rsvp/token").contentType("application/json").content("{\"response\":\"YES\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message", is("RSVP not allowed: event is CANCELLED")));
     }
 
     @Test
@@ -110,6 +123,26 @@ class RsvpControllerTest {
 
         mockMvc.perform(post("/api/rsvp/token").contentType("application/json").content("{\"response\":\"YES\"}"))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void submitRsvp_changingExistingRsvp_reflectsLatestValue() throws Exception {
+        Invitee confirmedYes = confirmedInvitee();
+        when(rsvpService.submitRsvpResponse("token", RsvpResponse.YES)).thenReturn(confirmedYes);
+
+        mockMvc.perform(post("/api/rsvp/token").contentType("application/json").content("{\"response\":\"YES\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.response", is("YES")))
+                .andExpect(jsonPath("$.attendanceStatus", is("CONFIRMED")));
+
+        Invitee changedToNo = pendingInvitee();
+        changedToNo.setResponse(RsvpResponse.NO);
+        when(rsvpService.submitRsvpResponse("token", RsvpResponse.NO)).thenReturn(changedToNo);
+
+        mockMvc.perform(post("/api/rsvp/token").contentType("application/json").content("{\"response\":\"NO\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.response", is("NO")))
+                .andExpect(jsonPath("$.attendanceStatus").doesNotExist());
     }
 
     private Invitee pendingInvitee() {
