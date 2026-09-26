@@ -47,3 +47,21 @@ export interface ApiErrorResponse {
   error: string;
   message: string;
 }
+
+// Mirrors the backend's RsvpResponseDto exactly - no id/rsvpToken field is
+// returned by the API, so none is modeled here.
+export interface RsvpResponseDto {
+  eventId: number;
+  eventTitle: string;
+  eventDescription: string | null;
+  eventStartTime: string; // ISO-8601
+  eventLocation: string;
+  eventStatus: EventStatus;
+  email: string;
+  response: RsvpResponse | null;
+  attendanceStatus: AttendanceStatus | null;
+}
+
+export interface SubmitRsvpRequest {
+  response: RsvpResponse;
+}
